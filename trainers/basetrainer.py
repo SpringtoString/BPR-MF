@@ -13,6 +13,7 @@ import random
 import multiprocessing
 import heapq
 import time
+import logging
 import sys
 from prettytable import PrettyTable
 sys.path.append('../')
@@ -120,9 +121,10 @@ class BaseTrainer(object):
 
     def __init__(self, model, lr=0.001, batch_size=500, epochs=15, verbose=5, save_round=200, early_stop=False, device='cpu'):
 
-
         self.model = model
         self.model.to(device)
+        self.name = 'basetariner_' + self.model.model_name
+
         self.batch_size = batch_size
         self.lr = lr
         self.epochs = epochs
@@ -133,16 +135,29 @@ class BaseTrainer(object):
         self.data_generator = data_generator
         self.set_eval_list()
         self.device = device
-        self.print_device_info()
-        self.name = 'basetariner_' + self.model.model_name
-
 
     def get_optimizer(self):
         optimizer = optim.Adam(self.model.parameters(), lr=self.lr, weight_decay=0.0)
         return optimizer
 
+    def set_logger(self):
+        logger = logging.getLogger(__name__)
+        logger.setLevel(level=logging.INFO)
+
+        log_dir = 'logs'
+        log_dir = os.path.join(log_dir, data_generator.path.split('/')[-1])
+        if not os.path.exists(log_dir):
+            os.makedirs(log_dir)
+
+        log_path = os.path.join(log_dir,'log_%s.txt'%(self.name))
+        handler = logging.FileHandler(log_path, mode='w')
+        handler.setLevel(logging.INFO)
+        logger.addHandler(handler)
+        self.logger = logger
+
     def print_device_info(self):
-        print("train on ",self.device)
+        print("train on ", self.device)
+        self.logger.info("train on %s" % (self.device))
 
     def get_input_data(self):
         users, pos_items, neg_items = data_generator.sample(self.batch_size)
@@ -160,6 +175,7 @@ class BaseTrainer(object):
         n_batch = (sample_num - 1) // self.batch_size + 1
 
         print("Train on {0} samples,  {1} steps per epoch".format(sample_num, n_batch))
+        self.logger.info("Train on {0} samples,  {1} steps per epoch".format(sample_num, n_batch))
         return n_batch
 
     def set_eval_list(self):
@@ -171,14 +187,15 @@ class BaseTrainer(object):
         eval_res.add_row([epoch, eval_time, result['precision'], result['recall'], result['ndcg'], result['hit_ratio'],
                           result['MAP']])
         print(eval_res)
+        self.logger.info(eval_res)
+        print(" ")
+        self.logger.info(" ")
 
         self.prec_list.append(result['precision'][0])
         self.rec_list.append(result['recall'][0])
         self.ndcg_list.append(result['ndcg'][0])
         self.hr_list.append(result['hit_ratio'][0])
         self.ap_list.append(result['MAP'][0])
-
-        print(" ")
 
     def save_model(self, epoch):
         save_dir = 'Save'
@@ -199,6 +216,9 @@ class BaseTrainer(object):
         df.to_csv('%s.csv' % (self.name), index=False)
 
     def fit(self):
+        self.set_logger()
+        self.print_device_info()
+
         loss_func = nn.LogSigmoid()
         n_batch = self.get_n_batch()
 
@@ -224,8 +244,10 @@ class BaseTrainer(object):
                     total_loss = total_loss + loss.item()
 
                 epoch_time = time.time() - start_time
-                print('epoch %d %.2fs train loss is [%.4f = %.4f + %.4f] ' % (epoch, epoch_time,
-                            total_loss / n_batch, total_mf_loss/n_batch, total_emb_loss/n_batch))
+                loss_info = 'epoch %d %.2fs train loss is [%.4f = %.4f + %.4f] ' % (epoch, epoch_time,
+                            total_loss / n_batch, total_mf_loss/n_batch, total_emb_loss/n_batch)
+                print(loss_info)
+                self.logger.info(loss_info)
 
             if epoch==1 or epoch % self.verbose == 0 or epoch == self.epochs :
                 start_time = time.time()
