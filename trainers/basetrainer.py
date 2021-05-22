@@ -148,15 +148,19 @@ class BaseTrainer(object):
         log_dir = os.path.join(log_dir, data_generator.path.split('/')[-1])
         if not os.path.exists(log_dir):
             os.makedirs(log_dir)
-
+        # log file handler
         log_path = os.path.join(log_dir,'log_%s.txt'%(self.name))
         handler = logging.FileHandler(log_path, mode='w')
         handler.setLevel(logging.INFO)
         logger.addHandler(handler)
+        # console handler
+        console = logging.StreamHandler()
+        console.setLevel(logging.INFO)
+        logger.addHandler(console)
         self.logger = logger
 
     def print_device_info(self):
-        print("train on ", self.device)
+        # print("train on ", self.device)
         self.logger.info("train on %s" % (self.device))
 
     def get_input_data(self):
@@ -174,7 +178,7 @@ class BaseTrainer(object):
         sample_num = self.data_generator.n_train
         n_batch = (sample_num - 1) // self.batch_size + 1
 
-        print("Train on {0} samples,  {1} steps per epoch".format(sample_num, n_batch))
+        # print("Train on {0} samples,  {1} steps per epoch".format(sample_num, n_batch))
         self.logger.info("Train on {0} samples,  {1} steps per epoch".format(sample_num, n_batch))
         return n_batch
 
@@ -186,9 +190,9 @@ class BaseTrainer(object):
         eval_res.field_names = ['epoch', 'time', 'precision', 'recall', 'ndcg', 'hit_ratio', 'MAP']
         eval_res.add_row([epoch, eval_time, result['precision'], result['recall'], result['ndcg'], result['hit_ratio'],
                           result['MAP']])
-        print(eval_res)
+        # print(eval_res)
         self.logger.info(eval_res)
-        print(" ")
+        # print(" ")
         self.logger.info(" ")
 
         self.prec_list.append(result['precision'][0])
@@ -246,7 +250,7 @@ class BaseTrainer(object):
                 epoch_time = time.time() - start_time
                 loss_info = 'epoch %d %.2fs train loss is [%.4f = %.4f + %.4f] ' % (epoch, epoch_time,
                             total_loss / n_batch, total_mf_loss/n_batch, total_emb_loss/n_batch)
-                print(loss_info)
+                # print(loss_info)
                 self.logger.info(loss_info)
 
             if epoch==1 or epoch % self.verbose == 0 or epoch == self.epochs :
