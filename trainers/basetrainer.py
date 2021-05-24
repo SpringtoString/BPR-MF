@@ -215,9 +215,16 @@ class BaseTrainer(object):
         torch.save(checkpoint, model_path)
 
     def save_result_csv(self):
+        res_dir = 'RES'
+        res_dir = os.path.join(res_dir, data_generator.path.split('/')[-1])
+        if not os.path.exists(res_dir):
+            os.makedirs(res_dir)
+
+        csv_name = os.path.join(res_dir,'%s.csv' % (self.name))
+
         df = pd.DataFrame(
             {'precision': self.prec_list, 'recall': self.rec_list, 'ndcg': self.ndcg_list, 'hr': self.hr_list, 'MAP': self.ap_list})
-        df.to_csv('%s.csv' % (self.name), index=False)
+        df.to_csv(csv_name, index=False)
 
     def fit(self):
         self.set_logger()
