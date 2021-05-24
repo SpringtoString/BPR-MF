@@ -43,13 +43,13 @@ def get_auc(item_score, user_pos_test):
     auc = metrics.auc(ground_truth=r, prediction=posterior)
     return auc
 
-def test_one_user(x):
+def test_one_user(x, Ks = [5, 10]):
     # user u's ratings for user u
     rating = x[0]
     # uid
     u = x[1]
     ITEM_NUM = data_generator.n_items
-    Ks = [5, 10]
+
     # user u's items in the training set
     try:
         training_items = data_generator.train_items[u]  # user 已交互的item
@@ -119,7 +119,7 @@ def test_one_user(x):
 
 class BaseTrainer(object):
 
-    def __init__(self, model, lr=0.001, batch_size=500, epochs=15, verbose=5, save_round=200, early_stop=False, device='cpu'):
+    def __init__(self, model, lr=0.001, batch_size=500, epochs=15, verbose=5, save_round=200, Ks = [5, 10], early_stop=False, device='cpu'):
 
         self.model = model
         self.model.to(device)
@@ -130,6 +130,7 @@ class BaseTrainer(object):
         self.epochs = epochs
         self.verbose = verbose
         self.save_round = save_round
+        self.Ks = Ks
         self.early_stop = early_stop
         self.optimizer = self.get_optimizer()
         self.data_generator = data_generator
@@ -262,7 +263,7 @@ class BaseTrainer(object):
 
             if epoch==1 or epoch % self.verbose == 0 or epoch == self.epochs :
                 start_time = time.time()
-                result = self.test(batch_size=2*self.batch_size)
+                result = self.test(batch_size=2*self.batch_size, Ks=self.Ks)
                 eval_time = time.time() - start_time
                 self.log_result(epoch, result, eval_time)
 
