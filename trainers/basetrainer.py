@@ -215,6 +215,12 @@ class BaseTrainer(object):
         model_path = os.path.join('Save', 'checkpoint-%s' % (self.model.model_name))
         torch.save(checkpoint, model_path)
 
+    def load_model(self):
+        model_path = os.path.join('Save', 'checkpoint-%s' % (self.model.model_name))
+        checkpoint = torch.load(model_path)
+        self.model.load_state_dict(checkpoint['model'])
+        print('load model complete!')
+
     def save_result_csv(self):
         res_dir = 'RES'
         res_dir = os.path.join(res_dir, data_generator.path.split('/')[-1])
