@@ -14,7 +14,9 @@ import multiprocessing
 import heapq
 import time
 import logging
+import datetime
 import sys
+import setproctitle
 from prettytable import PrettyTable
 sys.path.append('../')
 import util.metrics as metrics
@@ -160,6 +162,10 @@ class BaseTrainer(object):
         logger.addHandler(console)
         self.logger = logger
 
+    def set_process_name(self):
+        date_str = datetime.datetime.now().strftime('%d%H%M%S')
+        setproctitle.setproctitle(self.name+ date_str + '@SBZHAZHA')
+
     def print_device_info(self):
         # print("train on ", self.device)
         self.logger.info("train on %s" % (self.device))
@@ -235,6 +241,7 @@ class BaseTrainer(object):
 
     def fit(self):
         self.set_logger()
+        self.set_process_name()
         self.print_device_info()
 
         loss_func = nn.LogSigmoid()
