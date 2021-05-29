@@ -16,29 +16,16 @@ from trainers import basetrainer
 from trainers.basetrainer import BaseTrainer
 from models.mf import MF
 from util.loaddata import Data
+from util.utils import set_seed , get_device
 import multiprocessing
 import heapq
 import util.metrics as metrics
 
-def set_seed(seed=1024):
-    torch.manual_seed(seed)  # 为CPU设置随机种子
-    torch.cuda.manual_seed(seed)  # 为当前GPU设置随机种子
-    torch.cuda.manual_seed_all(seed)  # 为所有GPU设置随机种子
-    np.random.seed(seed)
-    random.seed(seed)
-
-def get_device():
-    device = 'cpu'
-    use_cuda = True
-    if use_cuda and torch.cuda.is_available():
-        print('cuda ready...')
-        device = 'cuda:0'
-    return device
 
 if __name__ == '__main__':
 
     set_seed()
-    device = get_device()
+    device = get_device(use_cuda=True, gpu_id=0)
 
     filepath = 'Data/movielens-1m'
     data_generator = Data(path=filepath,mode=1)  # mode=1 设置为测试集模式
