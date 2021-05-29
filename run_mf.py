@@ -33,6 +33,6 @@ if __name__ == '__main__':
     print("read complete")
 
     model = MF(data_generator.n_users, data_generator.n_items,embedding_size = 10, l2_reg_embedding=0.025)
-    trainer = BaseTrainer(model, lr=0.001, batch_size=1024, epochs=100, verbose=5, save_round=100, early_stop=False, device=device)
+    trainer = BaseTrainer(model, lr=0.001, batch_size=1024, epochs=100, verbose=5, save_round=100, early_stop=True, device=device)
     trainer.fit()
 

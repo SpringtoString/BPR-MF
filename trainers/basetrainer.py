@@ -20,6 +20,7 @@ import setproctitle
 from prettytable import PrettyTable
 sys.path.append('../')
 import util.metrics as metrics
+from  util.utils import EarlyStopManager
 
 data_generator = 0 # Data(path=filepath) 主程序中传入
 
@@ -121,7 +122,8 @@ def test_one_user(x, Ks = [5, 10]):
 
 class BaseTrainer(object):
 
-    def __init__(self, model, lr=0.001, batch_size=500, epochs=15, verbose=5, save_round=200, Ks = [5, 10], early_stop=False, device='cpu'):
+    def __init__(self, model, lr=0.001, batch_size=500, epochs=15, verbose=5, save_round=200, Ks = [5, 10], early_stop=False,patience=10,
+                 device='cpu'):
 
         self.model = model
         self.model.to(device)
@@ -134,6 +136,7 @@ class BaseTrainer(object):
         self.save_round = save_round
         self.Ks = Ks
         self.early_stop = early_stop
+        self.patience = patience
         self.optimizer = self.get_optimizer()
         self.data_generator = data_generator
         self.set_eval_list()
@@ -165,6 +168,9 @@ class BaseTrainer(object):
     def set_process_name(self):
         date_str = datetime.datetime.now().strftime('%d%H%M%S')
         setproctitle.setproctitle(self.name+ date_str + '@SBZHAZHA')
+
+    def set_esm(self):
+        self.esm = EarlyStopManager(patience=self.patience)
 
     def print_device_info(self):
         # print("train on ", self.device)
@@ -244,9 +250,12 @@ class BaseTrainer(object):
         self.set_process_name()
         self.print_device_info()
 
+        if self.early_stop:
+            self.set_esm()
+
         loss_func = nn.LogSigmoid()
         n_batch = self.get_n_batch()
-
+        should_stop = False
         for epoch in range(1, self.epochs+1):
             total_loss, total_mf_loss, total_emb_loss = 0.0, 0.0, 0.0
             with torch.autograd.set_detect_anomaly(True):
@@ -279,10 +288,15 @@ class BaseTrainer(object):
                 result = self.test(batch_size=2*self.batch_size, Ks=self.Ks)
                 eval_time = time.time() - start_time
                 self.log_result(epoch, result, eval_time)
-
+                if self.early_stop:
+                    should_stop = self.esm.step(result['recall'][0])
             # 保存模型
-            if self.save_round != -1 and epoch % self.save_round == 0:
+            if (self.save_round != -1 and epoch % self.save_round == 0) or epoch==self.epochs or should_stop:
                 self.save_model(epoch)
+            # early stop
+            if should_stop:
+                print("---early stop---")
+                break
 
         # 保存csv结果
         self.save_result_csv()
