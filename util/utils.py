@@ -32,6 +32,6 @@ class EarlyStopManager(object):
             return False
         else:
             self.count = self.count + 1
-            if self.count > self.es_patience:
+            if self.count > self.patience:
                 return True
             return False
