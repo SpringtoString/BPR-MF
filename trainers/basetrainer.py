@@ -18,8 +18,12 @@ import datetime
 import sys
 import setproctitle
 from prettytable import PrettyTable
+
+# import  pyximport
+# pyximport.install()
 sys.path.append('../')
 import util.metrics as metrics
+from evaluator.cpp.cpp_evaluator import CPPEvaluator
 from  util.utils import EarlyStopManager
 
 data_generator = 0 # Data(path=filepath) 主程序中传入
@@ -120,6 +124,7 @@ def test_one_user(x, Ks = [5, 10]):
 
     return get_performance(user_pos_test, r, auc, Ks)
 
+
 class BaseTrainer(object):
 
     def __init__(self, model, lr=0.001, batch_size=500, epochs=15, verbose=5, save_round=200, Ks = [5, 10], early_stop=False,patience=10,
@@ -127,7 +132,7 @@ class BaseTrainer(object):
 
         self.model = model
         self.model.to(device)
-        self.name = 'basetariner_' + self.model.model_name
+        self.name = 'basetrainer_' + self.model.model_name
 
         self.batch_size = batch_size
         self.lr = lr
@@ -285,7 +290,7 @@ class BaseTrainer(object):
 
             if epoch==1 or epoch % self.verbose == 0 or epoch == self.epochs :
                 start_time = time.time()
-                result = self.test(batch_size=2*self.batch_size, Ks=self.Ks)
+                result = self.test_cpp(batch_size=2*self.batch_size, Ks=self.Ks)
                 eval_time = time.time() - start_time
                 self.log_result(epoch, result, eval_time)
                 if self.early_stop:
@@ -345,4 +350,58 @@ class BaseTrainer(object):
 
         assert count == n_test_users
         pool.close()
+        return result
+
+    def test_cpp(self, batch_size=256, Ks = [5, 10]):
+
+        # data_generator = self.data_generator
+        result = {'precision': np.zeros(len(Ks)), 'recall': np.zeros(len(Ks)), 'ndcg': np.zeros(len(Ks)),
+                  'hit_ratio': np.zeros(len(Ks)), 'MAP': np.zeros(len(Ks)), 'auc': 0.}
+
+        u_batch_size = batch_size
+        i_batch_size = batch_size
+
+        test_users = list(data_generator.test_set.keys())
+        n_test_users = len(test_users)
+        n_user_batchs = (n_test_users - 1) // u_batch_size + 1
+
+        count = 0
+        # with torch.no_grad():
+        all_batch_result = []
+        ProxyEvaluator = CPPEvaluator()
+        for u_batch_id in range(n_user_batchs):
+            start = u_batch_id * u_batch_size
+            # end 这里需要完善
+            end = (u_batch_id + 1) * u_batch_size
+            user_batch = test_users[start: end]  # 取一部分 user
+            if len(user_batch)==0:
+                break
+            all_item = data_generator.all_item
+
+            user_batch = torch.from_numpy(np.array(user_batch)).to(self.device).long()
+            all_item = torch.from_numpy(np.array(all_item)).to(self.device).long()
+
+            rate_batch = self.model.rating(user_batch,all_item).detach().cpu().numpy()  # shape is [len(user_batch),ITEM_NUM] 即预测评分矩阵
+            user_batch = user_batch.detach().cpu().numpy()
+
+            for idx, user in enumerate(test_users[start: end]):
+                train_items = data_generator.train_items[user]
+                rate_batch[idx][train_items] = -np.inf
+            test_items = [ data_generator.test_set[u] for u in test_users[start: end]]
+
+            batch_result = ProxyEvaluator.eval_score_matrix(rate_batch, test_items, top_k=max(self.Ks),metric=[0,1,2,3,4], thread_num=os.cpu_count()//2)
+            count += len(batch_result)
+            all_batch_result.append(batch_result)
+
+        all_batch_result = np.concatenate(all_batch_result, axis=0)  # (num_users, metrics_num*max_top)
+        final_result = np.mean(all_batch_result, axis=0)  # (1, metrics_num*max_top)
+        final_result = np.reshape(final_result, newshape=[5, max(self.Ks)])  # (metrics_num, max_top)
+        top_show = [k-1 for k in self.Ks]
+        result['precision'] = final_result[0][top_show]
+        result['recall'] = final_result[1][top_show]
+        result['ndcg'] = final_result[2][top_show]
+        result['hit_ratio'] = final_result[3][top_show]
+        result['MAP'] = final_result[4][top_show]
+
+        assert count == n_test_users
         return result
