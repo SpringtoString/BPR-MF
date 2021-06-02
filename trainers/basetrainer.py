@@ -357,7 +357,7 @@ class BaseTrainer(object):
         # data_generator = self.data_generator
         result = {'precision': np.zeros(len(Ks)), 'recall': np.zeros(len(Ks)), 'ndcg': np.zeros(len(Ks)),
                   'hit_ratio': np.zeros(len(Ks)), 'MAP': np.zeros(len(Ks)), 'auc': 0.}
-
+        met2idx = {'precision': 0, 'recall': 1, 'ndcg': 2, 'hit_ratio': 3, 'MAP': 4}
         u_batch_size = batch_size
         i_batch_size = batch_size
 
@@ -397,11 +397,9 @@ class BaseTrainer(object):
         final_result = np.mean(all_batch_result, axis=0)  # (1, metrics_num*max_top)
         final_result = np.reshape(final_result, newshape=[5, max(self.Ks)])  # (metrics_num, max_top)
         top_show = [k-1 for k in self.Ks]
-        result['precision'] = final_result[0][top_show]
-        result['recall'] = final_result[1][top_show]
-        result['ndcg'] = final_result[2][top_show]
-        result['hit_ratio'] = final_result[3][top_show]
-        result['MAP'] = final_result[4][top_show]
+
+        for m,idx in met2idx:
+            result[m] = final_result[idx][top_show]
 
         assert count == n_test_users
         return result
