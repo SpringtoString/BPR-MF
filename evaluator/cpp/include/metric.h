@@ -37,7 +37,10 @@ void recall(const vector<int> &rank, const unordered_set<int> &truth, float *res
         {
             hits += 1;
         }
-        result_pt[i] = 1.0*hits / truth_len;
+        if(truth_len==0)
+            result_pt[i]=0.0
+        else
+            result_pt[i] = 1.0*hits / truth_len;
     }
 }
 
